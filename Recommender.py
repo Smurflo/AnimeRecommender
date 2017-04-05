@@ -1,7 +1,6 @@
 import Timer as timer
+import Helpers as helpers
 import timeit
-import json
-import csv
 import random
 import urllib.request
 from sklearn import svm
@@ -9,20 +8,9 @@ from collections import defaultdict
 from bs4 import BeautifulSoup
 
 
-basepath = "C:/Users/Kyle/PycharmProjects/CSE158/Resources/"
+basepath = "C:/Users/Kyle/Projects/AnimeRecommender/Resources/"
 list_url = "https://myanimelist.net/animelist/"
 mal_username = "Smurflo"   # default to my personal list for now
-# user_id = 51614  # TODO update this so it's random (avg num of entries: 106)
-user_id = 1  # TODO update this so it's random (avg num of entries: 106)
-
-def parseJSON(fname):
-    return json.load(open(basepath + fname))
-
-
-def parseCSV(fname):
-    file = basepath + fname
-    data = csv.reader(open(file))
-    return list(data)
 
 
 def calcMSE(predictions, actual):
@@ -36,36 +24,6 @@ def calcMSE(predictions, actual):
     return SE/len(predictions)
 
 
-# Remove unrated entries (-1), Remove users with <= (cutoff) ratings
-def cleanRatings(data, cutoff):
-    cleanData = []
-    numRatings = defaultdict(int)
-
-    # remove unrated entries
-    for rating in data:
-        if int(rating[-1]) == -1:
-            # ignore the entry
-            continue
-        cleanData.append(rating)
-        numRatings[rating[0]] += 1
-
-    print("here")
-
-    # remove users with less than (cutoff) ratings
-    tooFewEntries = [key for key in numRatings.keys() if numRatings[key] < cutoff]
-    for id in tooFewEntries:
-        timer.start()
-        cleanData = [data for data in cleanData if data[0] != id]
-
-        timer.end("Finished with id " + id)
-
-    # cleanData = [data for data in cleanData if data[0] not in tooFewEntries]
-    print("here three")
-
-    return cleanData
-
-
-
 def animeToFeature(anime_id):
     info = anime[anime_id]
     feat = [1]  # bias term
@@ -76,18 +34,20 @@ def animeToFeature(anime_id):
     feat.append(int(info["Popularity"]))
     feat.append(int(info["Ranked"]))
     feat.append(float(info["Score"]))
+    feat.append(helpers.parseDuration(info["Duration"]))
 
-    # TODO add duration, aired date, genres, licensors, producers, rating, status, studios, synopsis, type
+    # TODO aired date, genres, licensors, producers, rating, status, studios, synopsis, type
 
     return feat
 
 # read the data
 timer.start()
 print("Reading data...")
-anime = parseJSON("anime.json")
+anime = helpers.parseJSON("anime.json")
 
-ratings = parseCSV("rating.csv")
-header = ratings[0]
+# ratings = parseCSV("rating.csv")
+ratings = helpers.parseCSV("ratings_no_unrated.csv")
+header = ratings[0]     # ['user_id', 'anime_id', 'rating']
 ratings = ratings[1:]
 timer.end("Done reading data")
 
@@ -99,7 +59,8 @@ timer.end("Done reading data")
 
 # get training set and test set
 # TODO handle -1 entries here
-user_data = [r for r in ratings if r[0] == str(user_id)]
+# user_data = [r for r in ratings if r[0] == str(user_id)]
+user_data = helpers.getRandomUserData(ratings)
 random.shuffle(user_data)
 x = [animeToFeature(r[1]) for r in user_data]
 y = [int(r[2]) for r in user_data]
@@ -163,11 +124,4 @@ print("bestMSE: " + str(bestMSE))
 # table = soup.find("table")["data-items"]
 #
 # print(table.split("{"))
-
-
-
-
-
-
-
 
